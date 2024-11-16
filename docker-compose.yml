@@ -2,6 +2,6 @@ services:
   chat.redis:
     image: redis
     container_name: redis
-    restart: alwayes
+    restart: always
     ports:
         - '6379:6379'
