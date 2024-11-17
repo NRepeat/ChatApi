@@ -5,10 +5,13 @@ using System.Text.Json;
 using WebApi.Models;
 namespace WebApi.Hubs;
 
+
+
+
 public interface IChatClient
 {
-    public Task ReceiveAdminMessage(string userName, string message);
-    public Task ReceiveClientMessage(string userName, string message);
+    public Task ReceiveAdminMessage(IMessage message);
+    public Task ReceiveClientMessage(IMessage message);
 }
 
 
@@ -25,7 +28,16 @@ public class ChatHub : Hub<IChatClient>
         await Groups.AddToGroupAsync(Context.ConnectionId, connection.ChatRoom);
         string stringConnection = JsonSerializer.Serialize(connection);
         await _cashe.SetStringAsync(Context.ConnectionId,stringConnection);
-        await Clients.Group(connection.ChatRoom).ReceiveAdminMessage("Admin", connection.ChatRoom);
+        DateTime time = DateTime.Now;
+        Guid messageGuuid = Guid.NewGuid();
+        Message adminMessage = new Message
+        {
+            Guid = messageGuuid,
+            UserName = connection.User,
+            MessageValue = connection.ChatRoom,
+            Time = time
+        };
+        await Clients.Group(connection.ChatRoom).ReceiveAdminMessage(adminMessage);
     }
     public async Task SendMessage(string message)
     {
@@ -34,7 +46,16 @@ public class ChatHub : Hub<IChatClient>
         Console.WriteLine(connection);
         if(connection is not null)
         {
-            await Clients.Group(connection.ChatRoom).ReceiveClientMessage(connection.User, message);
+            DateTime time = DateTime.Now;
+            Guid messageGuuid = Guid.NewGuid();
+            Message messageObj = new Message
+            {
+                Guid = messageGuuid,
+                UserName = "Admin",
+                MessageValue = message,
+                Time = time
+            };
+            await Clients.Group(connection.ChatRoom).ReceiveClientMessage(messageObj);
         }
   
     }
@@ -44,9 +65,19 @@ public class ChatHub : Hub<IChatClient>
         var connection = JsonSerializer.Deserialize<UserConnection>(stringConnection);
         if (connection is not null)
         {
+            DateTime time = DateTime.Now;
+            Guid messageGuuid = Guid.NewGuid();
+            Message messageObj = new Message
+            {
+
+                Guid = messageGuuid,
+                UserName = "Admin",
+                MessageValue = connection.ChatRoom,
+                Time = time
+            };
             await _cashe.RemoveAsync(Context.ConnectionId);
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, connection.ChatRoom);
-                 await Clients.Group(connection.ChatRoom).ReceiveAdminMessage("Admin", $"{connection.User} disconnected");
+                 await Clients.Group(connection.ChatRoom).ReceiveAdminMessage(messageObj);
         }
         await base.OnDisconnectedAsync(exception);
     }
